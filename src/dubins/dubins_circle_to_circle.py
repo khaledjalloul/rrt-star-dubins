@@ -187,7 +187,6 @@ if __name__ == "__main__":
     ax.set_ylim(0, 10)
     ax.set_aspect("equal")
 
-    path.ax = ax
-    path.plot()
+    path.plot(ax)
 
     plt.show()

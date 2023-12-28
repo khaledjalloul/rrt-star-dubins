@@ -6,6 +6,7 @@ import math
 import timeit
 from src.utils import setup_rrt_plot
 
+
 def create_sample(i, dim):
     x = np.base_repr(i, base=2)[::-1]
     y = np.base_repr(i, base=3)[::-1]
@@ -36,8 +37,8 @@ def euc_dist(point1, point2):
             (point1[1] - point2[1]) ** 2) ** (1 / 2)
 
 
-def RRT(init, goal, obstacles, dim, num_samples, vehicle_radius, ax: axes.Axes):
-    points = [init]
+def RRT(start, goal, obstacles, dim, num_samples, vehicle_radius, ax: axes.Axes):
+    points = [start]
     parents = [None]
     distances = [0]
 
@@ -110,7 +111,7 @@ def RRT(init, goal, obstacles, dim, num_samples, vehicle_radius, ax: axes.Axes):
     trajectory = [goal, nearest]
     total_dist = distances[nearest_pt_idx] + dist
 
-    while nearest != init:
+    while nearest != start:
         nearest_pt_idx = parents[nearest_pt_idx]
         parent = points[nearest_pt_idx]
 
@@ -123,7 +124,7 @@ def RRT(init, goal, obstacles, dim, num_samples, vehicle_radius, ax: axes.Axes):
 
 if __name__ == "__main__":
 
-    init = (1, 2)
+    start = (1, 2)
     goal = (8, 9)
 
     obstacles = [
@@ -136,25 +137,19 @@ if __name__ == "__main__":
     NUM_SAMPLES = 1000
     DIM = (10, 10)
     VEHICLE_RADIUS = 0.3
-    PLOT_DELAY = 0.2
-    USE_DUBINS = False
 
-    ax = setup_rrt_plot(DIM, init, goal, obstacles, VEHICLE_RADIUS)
+    ax = setup_rrt_plot(DIM, start, goal, obstacles, VEHICLE_RADIUS)
 
-    start = timeit.default_timer()
-    if USE_DUBINS:
-        traj, dist = RRT(init, goal, obstacles, DIM,
-                                NUM_SAMPLES, VEHICLE_RADIUS, ax)
-    else:
-        traj, dist = RRT(init, goal, obstacles, DIM,
-                         NUM_SAMPLES, VEHICLE_RADIUS, ax)
-    stop = timeit.default_timer()
+    start_time = timeit.default_timer()
+    trajectory, dist = RRT(start, goal, obstacles, DIM,
+                           NUM_SAMPLES, VEHICLE_RADIUS, ax)
+    stop_time = timeit.default_timer()
 
-    print("Elapsed time:", stop - start)
+    print("Elapsed time:", stop_time - start_time)
 
-    for i in range(len(traj)):
-        if i != len(traj) - 1:
-            ax.plot([traj[i][0], traj[i+1][0]],
-                    [traj[i][1], traj[i+1][1]], "g-", zorder=10)
+    for i in range(len(trajectory)):
+        if i != len(trajectory) - 1:
+            ax.plot([trajectory[i][0], trajectory[i+1][0]],
+                    [trajectory[i][1], trajectory[i+1][1]], "g-", zorder=10)
 
     plt.show()

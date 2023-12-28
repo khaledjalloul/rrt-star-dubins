@@ -7,17 +7,11 @@ from shapely import Polygon, LineString
 import math
 import numpy as np
 
+
 @dataclass
 class Point:
     p: Tuple[float, float]
     theta: float = 0
-
-
-@dataclass
-class Line:
-    start_config: Point
-    end_config: Point
-    length: float = 0
 
 
 @dataclass
@@ -28,14 +22,80 @@ class Circle:
 
 
 @dataclass
+class Line:
+    def __init__(self, start_config: Point, end_config: Point, length: float = 0):
+        self.start_config = start_config
+        self.end_config = end_config
+        self.length = length
+
+    def plot(self, ax: axes.Axes, color="y", zorder=1):
+        ax.plot([self.start_config.p[0], self.end_config.p[0]],
+                [self.start_config.p[1], self.end_config.p[1]], color=color, zorder=zorder, linewidth=1)
+
+    def sample_points(self, ax: axes.Axes):
+        xs = np.linspace(self.start_config.p[0], self.end_config.p[0], 10)
+        ys = np.linspace(self.start_config.p[1], self.end_config.p[1], 10)
+
+        samples = [Point((xs[i], ys[i]), self.start_config.theta)
+                   for i in range(10)]
+        ax.plot(xs, ys, "ro")
+
+        return samples
+
+
+@dataclass
 class Curve:
-    start_config: Point
-    end_config: Point
-    center: Point
-    radius: float
-    curve_type: Literal["left", "right"]
-    arc_angle: float
-    length: float
+    def __init__(self, start_config: Point, end_config: Point, center: Point, radius: float, curve_type: Literal["left", "right"], arc_angle: float, length: float):
+        self.start_config = start_config
+        self.end_config = end_config
+        self.center = center
+        self.radius = radius
+        self.curve_type = curve_type
+        self.arc_angle = arc_angle
+        self.length = length
+
+        start_theta_vec = (self.start_config.p[0] - self.center.p[0],
+                           self.start_config.p[1] - self.center.p[1])
+        self.start_theta = math.atan2(start_theta_vec[1], start_theta_vec[0])
+
+    def plot(self, ax: axes.Axes, color="y", zorder=1):
+
+        rot_angle = 0 if self.curve_type == "left" else - \
+            rad_2_deg(self.arc_angle)
+
+        arc = Arc(
+            self.center.p, height=2*self.radius, width=2*self.radius, facecolor="none", edgecolor=color, zorder=zorder, theta1=rad_2_deg(self.start_theta), theta2=rad_2_deg(self.start_theta)+rad_2_deg(self.arc_angle), angle=rot_angle)
+
+        ax.add_patch(arc)
+
+    # TODO get more accurate bounding box
+    def get_bb(self) -> Polygon:
+        c = self.center.p
+        r = self.radius
+
+        x_min, x_max = c[0] - r,  c[0] + r
+        y_min, y_max = c[1] - r,  c[1] + r
+
+        return Polygon(((x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)))
+
+    def sample_points(self, ax: axes.Axes):
+        if self.curve_type == 'left':
+            range = np.linspace(
+                self.start_theta, self.start_theta + self.arc_angle, 10)
+        else:
+            range = np.linspace(
+                self.start_theta, self.start_theta - self.arc_angle, 10)
+
+        samples = []
+
+        for th in range:
+            x = self.radius * math.cos(th) + self.center.p[0]
+            y = self.radius * math.sin(th) + self.center.p[1]
+
+            samples.append(Point((x, y), th))
+            ax.plot(x, y, "ro")
+
+        return samples
 
 
 class Path:
@@ -43,56 +103,19 @@ class Path:
         self.curve1 = curve1
         self.line = line
         self.curve2 = curve2
-        self.ax: axes.Axes = None
 
         self.length = curve1.length + line.length
         self.length += 0 if curve2 is None else curve2.length
 
-    def plot_curve(self, curve: Curve, color="y", zorder=1):
-        arc_theta_vec = (curve.start_config.p[0] - curve.center.p[0],
-                         curve.start_config.p[1] - curve.center.p[1])
-        arc_theta = math.atan2(arc_theta_vec[1], arc_theta_vec[0])
-
-        arc_angle = 0 if curve.curve_type == "left" else - \
-            rad_2_deg(curve.arc_angle)
-
-        arc = Arc(
-            curve.center.p, height=2*curve.radius, width=2*curve.radius, facecolor="none", edgecolor=color, zorder=1, theta1=rad_2_deg(arc_theta), theta2=rad_2_deg(arc_theta)+rad_2_deg(curve.arc_angle), angle=arc_angle)
-
-        self.ax.add_patch(arc)
-
-    def plot(self, color="y", zorder=1):
-        self.plot_curve(self.curve1, color, zorder)
-
-        self.ax.plot([self.line.start_config.p[0], self.line.end_config.p[0]],
-                [self.line.start_config.p[1], self.line.end_config.p[1]], color=color, zorder=zorder, linewidth=1)
+    def plot(self, ax: axes.Axes, color="y", zorder=1):
+        self.curve1.plot(ax, color, zorder)
+        self.line.plot(ax, color, zorder)
 
         if self.curve2 is not None:
-            self.plot_curve(self.curve2)
-
-    # TODO
-    def curve_bb_todo(self, curve: Curve) -> Polygon:
-        ps = np.r_[[curve.start_config.p],
-                   [curve.end_config.p]]
-
-        x_min, y_min = np.min(ps, axis=0)
-        x_max, y_max = np.max(ps, axis=0)
-
-        rect = Rectangle((x_min, y_min), x_max - x_min, y_max - y_min)
-        self.ax.add_patch(rect)
-        return Polygon(((x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)))
-
-    def curve_bb(self, curve: Curve) -> Polygon:
-        c = curve.center.p
-        r = curve.radius
-
-        x_min, x_max = c[0] - r,  c[0] + r
-        y_min, y_max = c[1] - r,  c[1] + r
-
-        return Polygon(((x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)))
+            self.curve2.plot(ax, color, zorder)
 
     def intersects(self, obstacle: Polygon):
-        if self.curve_bb(self.curve1).intersects(obstacle):
+        if self.curve1.get_bb().intersects(obstacle):
             return True
 
         line_string = LineString(
@@ -100,10 +123,19 @@ class Path:
         if line_string.intersects(obstacle):
             return True
 
-        if self.curve2 is not None and self.curve_bb(self.curve2).intersects(obstacle):
+        if self.curve2 is not None and self.curve2.get_bb().intersects(obstacle):
             return True
 
         return False
+
+    def sample_points(self, ax: axes.Axes):
+        samples = self.curve1.sample_points(ax)
+        samples.extend(self.line.sample_points(ax))
+
+        if self.curve2 is not None:
+            samples.extend(self.curve2.sample_points(ax))
+
+        return samples
 
 
 def mod_2_pi(x: float) -> float:
@@ -116,6 +148,10 @@ def rad_2_deg(angle: float) -> float:
 
 def deg_2_rad(angle: float) -> float:
     return angle * math.pi / 180
+
+
+def euc_distance(x: Point, y: Point):
+    return ((x.p[0] - y.p[0]) ** 2 + (x.p[1] - y.p[1]) ** 2) ** (1 / 2)
 
 
 def setup_rrt_plot(dim, init, goal, obstacles, vehicle_radius):

@@ -110,7 +110,6 @@ if __name__ == "__main__":
     path = calculate_dubins_path(
         Point((3, 3), deg_2_rad(-90)), Point((7, 7), 0), 1)
 
-    path.ax = ax
-    path.plot()
+    path.plot(ax)
 
     plt.show()

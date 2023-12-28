@@ -4,7 +4,7 @@ from shapely import Polygon
 import numpy as np
 import math
 from typing import List
-from src.utils import Point, deg_2_rad, Path
+from src.utils import Point, deg_2_rad, Path, Curve, Line
 import timeit
 from src.dubins.dubins_circle_to_point import calculate_dubins_path
 
@@ -34,8 +34,8 @@ def check_path_collision(obstacles, path: Path):
     return is_collision
 
 
-def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, vehicle_radius, dubins_radius, ax: axes.Axes):
-    points: List[Point] = [init]
+def RRT(start: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, vehicle_radius, dubins_radius, ax: axes.Axes):
+    points: List[Point] = [start]
     parents = [None]
     distances = [0]
 
@@ -68,7 +68,8 @@ def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, ve
             nearest_pt = points[nearest_pt_idx]
 
             new_pt = Point(new_pt_coords, 0)
-            dubins_path = calculate_dubins_path(nearest_pt, new_pt, dubins_radius)
+            dubins_path = calculate_dubins_path(
+                nearest_pt, new_pt, dubins_radius)
 
             if not check_path_collision(buffered_obstacles, dubins_path):
                 dist = dubins_path.length
@@ -113,13 +114,12 @@ def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, ve
                     distances[remaining_pt_idx] = new_dist + \
                         nearest_to_new_dist
 
-        dubins_path.ax = ax
-        dubins_path.plot()
+        dubins_path.plot(ax)
 
     kdtree = KDTree([p.p for p in points])
 
     total_dist = 0
-    trajectory = []
+    trajectory: List[Path] = []
     k = 1
 
     while k < len(points) - 1:
@@ -134,12 +134,12 @@ def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, ve
             total_dist = distances[nearest_pt_idx] + dist
             trajectory.append(path_to_goal)
 
-            while nearest != init:
+            while nearest != start:
                 nearest_pt_idx = parents[nearest_pt_idx]
                 parent: Point = points[nearest_pt_idx]
 
-                trajectory.append(calculate_dubins_path(
-                    parent, nearest, dubins_radius))
+                path = calculate_dubins_path(parent, nearest, dubins_radius)
+                trajectory.append(path)
 
                 nearest = parent
 
@@ -148,7 +148,7 @@ def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, ve
     return trajectory, total_dist
 
 
-def setup_plot(dim, init: Point, goal: Point, obstacles, vehicle_radius):
+def setup_plot(dim, start: Point, goal: Point, obstacles, vehicle_radius):
     ax: axes.Axes
     fig, ax = plt.subplots()
 
@@ -156,10 +156,10 @@ def setup_plot(dim, init: Point, goal: Point, obstacles, vehicle_radius):
     ax.set_ylim(0, dim[1])
     ax.set_aspect('equal')
 
-    init_circle = plt.Circle(init.p, vehicle_radius,
+    init_circle = plt.Circle(start.p, vehicle_radius,
                              facecolor='none', edgecolor='b', zorder=15)
     ax.add_patch(init_circle)
-    ax.plot(init.p[0], init.p[1], "bo", zorder=15)
+    ax.plot(start.p[0], start.p[1], "bo", zorder=15)
     ax.plot(goal.p[0], goal.p[1], "go", zorder=15)
 
     for o in obstacles:
@@ -173,7 +173,7 @@ def setup_plot(dim, init: Point, goal: Point, obstacles, vehicle_radius):
 
 if __name__ == "__main__":
 
-    init = Point((1, 2), deg_2_rad(-90))
+    start = Point((1, 2), deg_2_rad(-90))
     goal = Point((8, 9), 0)
 
     obstacles = [
@@ -183,22 +183,29 @@ if __name__ == "__main__":
         Polygon(((4, 2), (6, 2), (6, 4), (4, 4), (3, 3)))
     ]
 
-    NUM_SAMPLES = 400
+    NUM_SAMPLES = 300
     DIM = (10, 10)
     VEHICLE_RADIUS = 0.3
     DUBINS_RADIUS = 0.3
 
-    ax = setup_plot(DIM, init, goal, obstacles, VEHICLE_RADIUS)
+    ax = setup_plot(DIM, start, goal, obstacles, VEHICLE_RADIUS)
 
-    start = timeit.default_timer()
-    traj, dist = RRT(init, goal, obstacles, DIM,
-                     NUM_SAMPLES, VEHICLE_RADIUS, DUBINS_RADIUS, ax)
-    stop = timeit.default_timer()
+    start_time = timeit.default_timer()
+    trajectory, dist = RRT(start, goal, obstacles, DIM,
+                           NUM_SAMPLES, VEHICLE_RADIUS, DUBINS_RADIUS, ax)
+    stop_time = timeit.default_timer()
 
-    print("Elapsed time:", stop - start)
+    print("Elapsed time:", stop_time - start_time)
 
-    for path in traj:
-        path.ax = ax
-        path.plot(color="g", zorder=10)
+    trajectory_points = []
+
+    for path in trajectory:
+        path.plot(ax, color="g", zorder=10)
+        ax.plot(path.curve1.end_config.p[0], path.curve1.end_config.p[1], "go", zorder=30)
+        ax.plot(path.line.end_config.p[0], path.line.end_config.p[1], "go", zorder=30)
+
+        trajectory_points.extend(path.sample_points(ax))
+
+    print(len(trajectory_points))
 
     plt.show()
