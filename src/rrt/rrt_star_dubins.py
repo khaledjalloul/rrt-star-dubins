@@ -4,9 +4,10 @@ from shapely import Polygon
 import numpy as np
 import math
 from typing import List
-from src.utils import Point, deg_2_rad, Path, Curve, Line
+from src.utils import Point, deg_2_rad, Path
 import timeit
 from src.dubins.dubins_circle_to_point import calculate_dubins_path
+from src.vehicle_dynamics import get_velocities, get_wheel_vel
 
 
 def create_sample(i, dim):
@@ -201,11 +202,21 @@ if __name__ == "__main__":
 
     for path in trajectory:
         path.plot(ax, color="g", zorder=10)
-        ax.plot(path.curve1.end_config.p[0], path.curve1.end_config.p[1], "go", zorder=30)
-        ax.plot(path.line.end_config.p[0], path.line.end_config.p[1], "go", zorder=30)
+        ax.plot(path.curve1.end_config.p[0],
+                path.curve1.end_config.p[1], "go", zorder=30)
+        ax.plot(path.line.end_config.p[0],
+                path.line.end_config.p[1], "go", zorder=30)
 
-        trajectory_points.extend(path.sample_points(ax))
+        trajectory_points[:0] = path.sample_points(ax)
 
-    print(len(trajectory_points))
+    # print(len(trajectory_points))
+
+    # for i, point in enumerate(trajectory_points):
+    #     if i < len(trajectory_points) - 1:
+    #         v, w = get_velocities(
+    #             point, trajectory_points[i+1], 2 * VEHICLE_RADIUS)
+    #         omega_l, omega_r = get_wheel_vel(v, w, 2 * VEHICLE_RADIUS)
+
+    #         print("v:", v, " w:", w, " o_l:", omega_l, " o_r", omega_r)
 
     plt.show()
