@@ -25,23 +25,20 @@ def calculate_turning_circles(current_config: Point, radius: float):
     return left_circle, right_circle
 
 
-def calculate_tangent(circle_start: Circle, p: Point) -> List[Line]:
+def calculate_tangent(circle_start: Circle, target: Point) -> List[Line]:
     C1 = circle_start.center.p
     R = circle_start.radius
-    C1P = ((C1[0] - p.p[0]) ** 2 + (C1[1] - p.p[1]) ** 2) ** (1 / 2)
+    C1P = ((C1[0] - target.p[0]) ** 2 + (C1[1] - target.p[1]) ** 2) ** (1 / 2)
+    direction = circle_start.curve_type
 
     if R > C1P:
         return []
 
-    direction = circle_start.curve_type
-
     tangents = []
 
-    vec = np.array([p.p[0] - C1[0], p.p[1] - C1[1]])
-
-    tangents = []
-
+    vec = np.array([target.p[0] - C1[0], target.p[1] - C1[1]])
     th = math.acos(R / C1P)
+
     if direction == "right":
         rot_mat = np.array([[math.cos(th), -math.sin(th)],
                            [math.sin(th), math.cos(th)]])
@@ -51,16 +48,14 @@ def calculate_tangent(circle_start: Circle, p: Point) -> List[Line]:
                            [math.sin(-th), math.cos(-th)]])
 
     vec_perp = np.matmul(rot_mat, vec)
-
     vec_perp = (vec_perp[0] / C1P * R, vec_perp[1] / C1P * R)
 
-    p1 = (C1[0] + vec_perp[0], C1[1] + vec_perp[1])
+    tangent_pt = (C1[0] + vec_perp[0], C1[1] + vec_perp[1])
 
-    tangent_vec = (p.p[0] - p1[0], p.p[1] - p1[1])
-
+    tangent_vec = (target.p[0] - tangent_pt[0], target.p[1] - tangent_pt[1])
     theta = math.atan2(tangent_vec[1], tangent_vec[0])
 
-    tangents.append(Line(Point(p1, theta), Point(p.p, theta)))
+    tangents.append(Line(Point(tangent_pt, theta), Point(target.p, theta)))
 
     return tangents
 

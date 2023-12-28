@@ -1,12 +1,13 @@
 from matplotlib import pyplot as plt, axes
 from scipy.spatial import KDTree
-from shapely import LineString, Polygon
+from shapely import Polygon
 import numpy as np
 import math
 from typing import List
 from src.utils import Point, deg_2_rad, Path
 import timeit
 from src.dubins.dubins_circle_to_point import calculate_dubins_path
+
 
 def create_sample(i, dim):
     x = np.base_repr(i, base=2)[::-1]
@@ -32,22 +33,7 @@ def check_path_collision(obstacles, path: Path):
 
     return is_collision
 
-def check_line_collision(obstacles, point1, point2):
-    is_collision = False
 
-    for obstacle in obstacles:
-        if obstacle.intersects(LineString((point1, point2))):
-            is_collision = True
-            break
-
-    return is_collision
-
-
-def euc_dist(point1, point2):
-    return ((point1[0] - point2[0]) ** 2 +
-            (point1[1] - point2[1]) ** 2) ** (1 / 2)
-
-        
 def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, vehicle_radius, dubins_radius, ax: axes.Axes):
     points: List[Point] = [init]
     parents = [None]
@@ -60,7 +46,7 @@ def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, ve
             vehicle_radius, join_style="mitre"))
 
     for sample in range(num_samples):
-        
+
         kdtree = KDTree([p.p for p in points])
 
         new_pt_coords = create_sample(sample, dim)
@@ -69,30 +55,31 @@ def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, ve
         if proximity == 0:
             proximity = dim[0] * dim[1] / 2
 
-        nearest_pt_idxs: List[int] = kdtree.query_ball_point(new_pt_coords, proximity)
+        nearest_pt_idxs: List[int] = kdtree.query_ball_point(
+            new_pt_coords, proximity)
 
         potential_parents = []
         potential_paths: List[Path] = []
         potential_distances = []
-        
+
         nearest_pt_distances = []
 
         for nearest_pt_idx in nearest_pt_idxs:
             nearest_pt = points[nearest_pt_idx]
 
-            ppp = Point(new_pt_coords, 0)
-            dubins_path = calculate_dubins_path(nearest_pt, ppp, dubins_radius)
+            new_pt = Point(new_pt_coords, 0)
+            dubins_path = calculate_dubins_path(nearest_pt, new_pt, dubins_radius)
 
             if not check_path_collision(buffered_obstacles, dubins_path):
                 dist = dubins_path.length
                 nearest_pt_distances.append(dist)
 
                 new_dist = distances[nearest_pt_idx] + dist
-                
+
                 potential_parents.append(nearest_pt_idx)
                 potential_paths.append(dubins_path)
                 potential_distances.append(new_dist)
-                
+
         if len(potential_paths) == 0:
             continue
 
@@ -101,52 +88,62 @@ def RRT(init: Point, goal: Point, obstacles: List[Polygon], dim, num_samples, ve
         new_dist = potential_distances[min_idx]
         new_parent_idx = potential_parents[min_idx]
 
-        
-        ppp = dubins_path.line.end_config
+        new_pt = dubins_path.line.end_config
 
-        points.append(ppp)
+        points.append(new_pt)
         parents.append(new_parent_idx)
         distances.append(new_dist)
 
         new_pt_idx = len(points) - 1
 
-        for i, remaining_pt_idx in enumerate(nearest_pt_idxs):
+        for remaining_pt_idx in nearest_pt_idxs:
             if remaining_pt_idx == new_parent_idx:
                 continue
-            
+
             remaining_pt = points[remaining_pt_idx]
 
-            remaining_dubins_path: Path = calculate_dubins_path(ppp, remaining_pt, dubins_radius)
+            remaining_dubins_path: Path = calculate_dubins_path(
+                new_pt, remaining_pt, dubins_radius)
             nearest_to_new_dist = remaining_dubins_path.length
-            
+
             if new_dist + nearest_to_new_dist < distances[remaining_pt_idx]:
                 if not check_path_collision(buffered_obstacles, remaining_dubins_path):
+                    points[remaining_pt_idx].theta = remaining_dubins_path.line.end_config.theta
                     parents[remaining_pt_idx] = new_pt_idx
                     distances[remaining_pt_idx] = new_dist + \
                         nearest_to_new_dist
 
-        # ax.plot([new_pt[0], points[potential_parents[min_idx]][0]], [
-        #     new_pt[1], points[potential_parents[min_idx]][1]], "y-")
-
         dubins_path.ax = ax
         dubins_path.plot()
-        # plt.pause(PLOT_DELAY)
-        
+
     kdtree = KDTree([p.p for p in points])
-    dist, nearest_pt_idx = kdtree.query(goal.p)
-    nearest = points[nearest_pt_idx]
 
-    total_dist = distances[nearest_pt_idx] + dist
-    
-    trajectory = [calculate_dubins_path(nearest, goal, dubins_radius)]
-    
-    while nearest != init:
-        nearest_pt_idx = parents[nearest_pt_idx]
-        parent = points[nearest_pt_idx]
+    total_dist = 0
+    trajectory = []
+    k = 1
 
-        trajectory.append(calculate_dubins_path(parent, nearest, dubins_radius))
+    while k < len(points) - 1:
+        dist, nearest_pt_idx = kdtree.query(goal.p, [k])
+        dist, nearest_pt_idx = dist[0], nearest_pt_idx[0]
+        nearest = points[nearest_pt_idx]
+        path_to_goal = calculate_dubins_path(nearest, goal, dubins_radius)
 
-        nearest = parent
+        if check_path_collision(buffered_obstacles, path_to_goal):
+            k += 1
+        else:
+            total_dist = distances[nearest_pt_idx] + dist
+            trajectory.append(path_to_goal)
+
+            while nearest != init:
+                nearest_pt_idx = parents[nearest_pt_idx]
+                parent: Point = points[nearest_pt_idx]
+
+                trajectory.append(calculate_dubins_path(
+                    parent, nearest, dubins_radius))
+
+                nearest = parent
+
+            break
 
     return trajectory, total_dist
 
@@ -186,17 +183,16 @@ if __name__ == "__main__":
         Polygon(((4, 2), (6, 2), (6, 4), (4, 4), (3, 3)))
     ]
 
-    NUM_SAMPLES = 1000
+    NUM_SAMPLES = 400
     DIM = (10, 10)
     VEHICLE_RADIUS = 0.3
-    PLOT_DELAY = 0.3
-    DUBINS_RADIUS = 0.1
+    DUBINS_RADIUS = 0.3
 
     ax = setup_plot(DIM, init, goal, obstacles, VEHICLE_RADIUS)
 
     start = timeit.default_timer()
     traj, dist = RRT(init, goal, obstacles, DIM,
-                        NUM_SAMPLES, VEHICLE_RADIUS, DUBINS_RADIUS, ax)
+                     NUM_SAMPLES, VEHICLE_RADIUS, DUBINS_RADIUS, ax)
     stop = timeit.default_timer()
 
     print("Elapsed time:", stop - start)
