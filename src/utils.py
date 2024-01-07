@@ -50,10 +50,10 @@ def setup_rrt_plot(dim, start: Point, goal: Point, obstacles, buffered_obstacles
     ax.set_ylim(dim[0][1], dim[1][1])
     ax.set_aspect('equal')
 
-    init_circle = plt.Circle(start.tuple(), vehicle_radius,
-                             facecolor='none', edgecolor='b', zorder=15)
-    ax.add_patch(init_circle)
-    ax.plot(start.x, start.y, "bo", zorder=15)
+    start_circle = plt.Circle(start.tuple(), vehicle_radius,
+                             facecolor='none', edgecolor='r', zorder=15)
+    ax.add_patch(start_circle)
+    ax.plot(start.x, start.y, "ro", zorder=15)
     ax.plot(goal.x, goal.y, "go", zorder=15)
 
     for i in range(len(obstacles)):

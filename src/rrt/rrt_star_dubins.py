@@ -1,6 +1,6 @@
 from matplotlib import pyplot as plt, axes
 from scipy.spatial import KDTree
-from shapely import Polygon
+from shapely import Polygon, LinearRing
 import numpy as np
 import math
 from typing import List
@@ -22,7 +22,7 @@ def check_path_collision(obstacles, path: Path):
     return is_collision
 
 
-def RRT_step(points, distances, parents, dim, index, obstacles, dubins_radius, ax):
+def RRT_step(points, distances, parents, dim, index, obstacles, dubins_radius, ax: axes.Axes = None):
     kdtree = KDTree([p.tuple() for p in points])
 
     new_pt_coords = create_halton_sample(index, dim)
@@ -90,7 +90,8 @@ def RRT_step(points, distances, parents, dim, index, obstacles, dubins_radius, a
                     distances[remaining_pt_idx] = new_dist + \
                         nearest_to_new_dist
 
-        dubins_path.plot(ax)
+        if ax is not None:
+            dubins_path.plot(ax)
 
     return points, distances, parents
 
@@ -145,9 +146,9 @@ def follow_path():
     start = Point(0, 9, 1)
     goal = Point(4.5, -2)
 
-    NUM_SAMPLES = 40
+    NUM_SAMPLES = 400
     DIM = ((-11, -11), (11, 11))
-    VEHICLE_RADIUS = 0.3
+    VEHICLE_RADIUS = 0.6
     DUBINS_RADIUS = 0.45
     NUM_PATH_SAMPLES = (10, 10)
     WHEELBASE = 1
@@ -167,6 +168,7 @@ def follow_path():
         Polygon(([-6, 5], [-5, 6], [-4, 6], [-5, 4], [-6, 5])),
         Polygon(([0, 5], [1, 7], [2, 6], [1, 4], [0, 5])),
         Polygon(([6, 5], [7, 7], [8, 6], [7, 4], [6, 5])),
+        LinearRing(([[-11, -11], [-11, 11], [11, 11], [11, -11], [-11, -11]]))
     ]
 
     buffered_obstacles = []
@@ -175,7 +177,7 @@ def follow_path():
         buffered_obstacles.append(obstacle.buffer(
             VEHICLE_RADIUS, join_style="mitre"))
 
-    pid = PIDController(0.1, 0, 1)
+    pid = PIDController(0, 0, 2)
 
     desired_x = []
     desired_y = []
@@ -191,12 +193,13 @@ def follow_path():
 
     w = 0
 
-    ax0: axes.Axes
-    ax1: axes.Axes
-    ax2: axes.Axes
-    ax3: axes.Axes
+    # ax1: axes.Axes
+    # ax2: axes.Axes
+    # ax3: axes.Axes
     ax4: axes.Axes
-    fig, [ax0, ax1, ax2, ax3, ax4] = plt.subplots(5, 1)
+    # fig, [ax1, ax2, ax3, ax4] = plt.subplots(4, 1)
+
+    fig, ax4 = plt.subplots()
 
     nearest_idx = 0
 
@@ -206,33 +209,35 @@ def follow_path():
     rrt_parents = []
     rrt_path = []
 
-    for _ in range(10000):
+    for i in range(10000):
 
         current = Point(current_x, current_y, current_th)
+        ax4.clear()
+        setup_rrt_plot(DIM, start, goal, obstacles,
+                       buffered_obstacles, VEHICLE_RADIUS, ax4)
+        ax4.plot([p.x for p in rrt_path], [p.y for p in rrt_path], "y")
         ax4.plot(current_x, current_y, "bo", zorder=100)
 
         if rrt_index == 0:
             rrt_points = [current]
             rrt_parents = [None]
             rrt_distances = [0]
-            ax4.clear()
-            setup_rrt_plot(DIM, start, goal, obstacles,
-                           buffered_obstacles, VEHICLE_RADIUS, ax4)
 
         if rrt_index < NUM_SAMPLES:
-            rrt_points, rrt_distances, rrt_parents = RRT_step(
-                rrt_points,
-                rrt_distances,
-                rrt_parents,
-                DIM,
-                rrt_index,
-                buffered_obstacles,
-                DUBINS_RADIUS,
-                ax4
-            )
-            rrt_index += 1
+            for _ in range(50):
+                rrt_points, rrt_distances, rrt_parents = RRT_step(
+                    rrt_points,
+                    rrt_distances,
+                    rrt_parents,
+                    DIM,
+                    rrt_index,
+                    buffered_obstacles,
+                    DUBINS_RADIUS,
+                    # ax4
+                )
+                rrt_index += 1
 
-        if rrt_index == NUM_SAMPLES:
+        if rrt_index >= NUM_SAMPLES:
             dubins_paths, _ = get_RRT_path(
                 rrt_points,
                 rrt_distances,
@@ -245,13 +250,13 @@ def follow_path():
             rrt_path = []
 
             for path in dubins_paths:
-                path.plot(ax4, color="g", zorder=10)
-                ax4.plot(path.curve1.end_config.x,
-                         path.curve1.end_config.y, "go", zorder=30)
-                ax4.plot(path.line.end_config.x,
-                         path.line.end_config.y, "go", zorder=30)
+                # path.plot(ax4, color="g", zorder=10)
+                # ax4.plot(path.curve1.end_config.x,
+                #          path.curve1.end_config.y, "go", zorder=30)
+                # ax4.plot(path.line.end_config.x,
+                #          path.line.end_config.y, "go", zorder=30)
 
-                rrt_path[:0] = path.sample_points(ax4, NUM_PATH_SAMPLES)
+                rrt_path[:0] = path.sample_points(NUM_PATH_SAMPLES)
 
             if len(rrt_path) > 0:
                 kdtree = KDTree([p.tuple() for p in rrt_path])
@@ -264,10 +269,13 @@ def follow_path():
             next_point = rrt_path[nearest_idx]
             dist = euc_distance(current, next_point)
 
-            while dist < 0.1 and nearest_idx < len(rrt_path) - 1:
+            while dist < 0.2 and nearest_idx < len(rrt_path) - 1:
                 nearest_idx += 1
                 next_point = rrt_path[nearest_idx]
                 dist = euc_distance(current, next_point)
+            
+            if dist < 0.2 and nearest_idx == len(rrt_path) - 1:
+                break
 
             theta_desired = math.atan2(
                 (next_point.y - current.y), (next_point.x - current.x)
@@ -276,17 +284,17 @@ def follow_path():
             diff_theta = mod_pi(theta_desired - current.theta)
             acc_theta = pid.calculate(diff_theta, 0)
 
-            v = (1 - math.e ** (- 1 * dist)) * math.e ** (- abs(diff_theta))
+            v = (1 - math.e ** (- 0.7 * dist)) * math.e ** (- abs(diff_theta))
             w += acc_theta
 
-            if w > 5:
-                w = 5
-            if w < -5:
-                w = -5
+            if w > 1:
+                w = 1
+            if w < -1:
+                w = -1
 
             dx, dy, dth = diff_dynamics(v, current_th, w, WHEELBASE)
 
-            print(nearest_idx, len(rrt_path), "\n", current_x, next_point.x, "\n", current_y, next_point.y, "\n",
+            print(i, nearest_idx, len(rrt_path), rrt_index, "\n", current_x, next_point.x, "\n", current_y, next_point.y, "\n",
                   rad_2_deg(mod_2_pi(current_th)), rad_2_deg(mod_2_pi(theta_desired)), rad_2_deg(diff_theta), "\n", v, w, "\n", dx, dy, dth)
             print("------")
 
@@ -302,25 +310,23 @@ def follow_path():
             actual_theta.append(rad_2_deg(mod_2_pi(current.theta)))
             current_idx.append(nearest_idx)
 
-            ax0.clear()
-            ax0.plot(current_idx, "b")
+            # ax1.clear()
+            # ax1.plot(desired_x, "b")
+            # ax1.plot(actual_x, "r")
 
-            ax1.clear()
-            ax1.plot(desired_x, "b")
-            ax1.plot(actual_x, "r")
+            # ax2.clear()
+            # ax2.plot(desired_y, "b")
+            # ax2.plot(actual_y, "r")
 
-            ax2.clear()
-            ax2.plot(desired_y, "b")
-            ax2.plot(actual_y, "r")
+            # ax3.clear()
+            # ax3.set_ylim(0, 360)
+            # ax3.set_yticks([0, 45, 90, 135, 180, 225, 270, 315, 360])
+            # ax3.plot(desired_theta, "b")
+            # ax3.plot(actual_theta, "r")
 
-            ax3.clear()
-            ax3.set_ylim(0, 360)
-            ax3.set_yticks([0, 45, 90, 135, 180, 225, 270, 315, 360])
-            ax3.plot(desired_theta, "b")
-            ax3.plot(actual_theta, "r")
-
-            plt.draw()
-            plt.waitforbuttonpress()
+            # plt.draw()
+            # plt.waitforbuttonpress()
+            plt.pause(0.1)
 
     plt.show()
 
