@@ -13,6 +13,15 @@ def mod_2_pi(x: float) -> float:
     return x - 2 * np.pi * np.floor(x / (2 * np.pi))
 
 
+def mod_pi(x):
+    if x == 0:
+        return 0
+    div, res = abs(x) // np.pi, abs(x) % np.pi
+    res -= np.pi if div % 2 != 0 else 0
+    res *= x / abs(x)
+    return res
+
+
 def deg_2_rad(angle: float) -> float:
     return angle * math.pi / 180
 
@@ -35,9 +44,7 @@ def create_halton_sample(i, dim):
     return x_new * (dim[1][0] - dim[0][0]) + dim[0][0], y_new * (dim[1][1] - dim[0][1]) + dim[0][1]
 
 
-def setup_rrt_plot(dim, start: Point, goal: Point, obstacles, buffered_obstacles, vehicle_radius):
-    ax: axes.Axes
-    fig, ax = plt.subplots()
+def setup_rrt_plot(dim, start: Point, goal: Point, obstacles, buffered_obstacles, vehicle_radius, ax: axes.Axes):
 
     ax.set_xlim(dim[0][0], dim[1][0])
     ax.set_ylim(dim[0][1], dim[1][1])
@@ -55,5 +62,4 @@ def setup_rrt_plot(dim, start: Point, goal: Point, obstacles, buffered_obstacles
             ax.plot(x, y, "r")
         x, y = buffered_obstacles[i].exterior.xy
         ax.plot(x, y, color="orange")
-
-    return ax
+        

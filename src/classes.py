@@ -35,12 +35,12 @@ class Line:
         ax.plot([self.start_config.x, self.end_config.x],
                 [self.start_config.y, self.end_config.y], color=color, zorder=zorder, linewidth=1)
 
-    def sample_points(self, ax: axes.Axes):
-        xs = np.linspace(self.start_config.x, self.end_config.x, 10)
-        ys = np.linspace(self.start_config.y, self.end_config.y, 10)
+    def sample_points(self, ax: axes.Axes, num_samples):
+        xs = np.linspace(self.start_config.x, self.end_config.x, num_samples)
+        ys = np.linspace(self.start_config.y, self.end_config.y, num_samples)
 
         samples = [Point(xs[i], ys[i], self.start_config.theta)
-                   for i in range(10)]
+                   for i in range(num_samples)]
         ax.plot(xs, ys, "ro")
 
         return samples
@@ -82,13 +82,13 @@ class Curve:
 
         return Polygon(((x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)))
 
-    def sample_points(self, ax: axes.Axes):
+    def sample_points(self, ax: axes.Axes, num_samples):
         if self.curve_type == 'left':
             range = np.linspace(
-                self.start_theta, self.start_theta + self.arc_angle, 10)
+                self.start_theta, self.start_theta + self.arc_angle, num_samples)
         else:
             range = np.linspace(
-                self.start_theta, self.start_theta - self.arc_angle, 10)
+                self.start_theta, self.start_theta - self.arc_angle, num_samples)
 
         samples = []
 
@@ -132,11 +132,11 @@ class Path:
 
         return False
 
-    def sample_points(self, ax: axes.Axes):
-        samples = self.curve1.sample_points(ax)
-        samples.extend(self.line.sample_points(ax))
+    def sample_points(self, ax: axes.Axes, num_path_samples: tuple):
+        samples = self.curve1.sample_points(ax, num_path_samples[0])
+        samples.extend(self.line.sample_points(ax, num_path_samples[1]))
 
         if self.curve2 is not None:
-            samples.extend(self.curve2.sample_points(ax))
+            samples.extend(self.curve2.sample_points(ax, num_path_samples[0]))
 
         return samples
