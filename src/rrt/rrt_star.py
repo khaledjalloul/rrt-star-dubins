@@ -117,7 +117,7 @@ def RRT(start: Point, goals: List[Point], obstacles, dim, num_samples, ax: axes.
         if len(trajectory) > 0:
             break
 
-    return trajectory, total_dist
+    return trajectory[::-1], total_dist
 
 
 if __name__ == "__main__":

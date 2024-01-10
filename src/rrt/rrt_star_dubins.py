@@ -4,10 +4,9 @@ from shapely import Polygon, LinearRing, Point as ShapelyPoint
 import numpy as np
 import math
 from typing import List
-from src.utils import setup_rrt_plot, create_halton_sample, euc_distance, mod_pi, diff_dynamics
+from src.utils import setup_rrt_plot, create_halton_sample
 from src.classes import Point, Path
 from src.dubins.dubins_circle_to_point import calculate_dubins_path
-from src.pid import PIDController
 
 
 def check_path_collision(obstacles, path: Path):
@@ -144,7 +143,7 @@ def RRT(start: Point, goals: List[Point], obstacles: List[Polygon], dim, num_sam
     return trajectory, total_dist
 
 
-def follow_path():
+if __name__ == "__main__":
     start = Point(0, 9, 1)
     goal = ShapelyPoint(4.5, -2).buffer(0.5)
 
@@ -188,18 +187,11 @@ def follow_path():
         buffered_obstacles.append(obstacle.buffer(
             VEHICLE_RADIUS, join_style="mitre"))
 
-    pid = PIDController(0, 0, 2)
-
-    current_x = start.x
-    current_y = start.y
-    current_th = start.theta
-
-    w = 0
-
     ax: axes.Axes
     _, ax = plt.subplots()
 
-    nearest_idx = 0
+    setup_rrt_plot(DIM, start, goal, obstacles,
+                    buffered_obstacles, VEHICLE_RADIUS, ax)
 
     dubins_paths, _ = RRT(
         start,
@@ -217,53 +209,5 @@ def follow_path():
     for path in dubins_paths:
         rrt_path[:0] = path.sample_points(NUM_PATH_SAMPLES)
 
-    if len(rrt_path) == 0:
-        return
-
-    for i in range(10000):
-        current = Point(current_x, current_y, current_th)
-        ax.clear()
-        setup_rrt_plot(DIM, start, goal, obstacles,
-                       buffered_obstacles, VEHICLE_RADIUS, ax)
-        ax.plot([p.x for p in rrt_path], [p.y for p in rrt_path], "y")
-        ax.plot(current_x, current_y, "bo", zorder=100)
-
-        next_point = rrt_path[nearest_idx]
-        dist = euc_distance(current, next_point)
-
-        while dist < 0.2 and nearest_idx < len(rrt_path) - 1:
-            nearest_idx += 1
-            next_point = rrt_path[nearest_idx]
-            dist = euc_distance(current, next_point)
-
-        if dist < 0.2 and nearest_idx == len(rrt_path) - 1:
-            break
-
-        theta_desired = math.atan2(
-            (next_point.y - current.y), (next_point.x - current.x)
-        )
-
-        diff_theta = mod_pi(theta_desired - current.theta)
-        acc_theta = pid.calculate(diff_theta, 0)
-
-        v = (1 - math.e ** (- 0.7 * dist)) * math.e ** (- abs(diff_theta))
-        w += acc_theta
-
-        if w > 1:
-            w = 1
-        if w < -1:
-            w = -1
-
-        dx, dy, dth = diff_dynamics(v, current_th, w, WHEELBASE)
-
-        current_x += dx
-        current_y += dy
-        current_th += dth
-
-        plt.pause(0.1)
-
+    ax.plot([p.x for p in rrt_path], [p.y for p in rrt_path], "g")
     plt.show()
-
-
-if __name__ == "__main__":
-    follow_path()
