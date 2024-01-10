@@ -3,6 +3,8 @@ from shapely import LinearRing
 import math
 import numpy as np
 from src.classes import Point
+from shapely import Polygon
+from typing import List
 
 
 def rad_2_deg(angle: float) -> float:
@@ -44,17 +46,26 @@ def create_halton_sample(i, dim):
     return x_new * (dim[1][0] - dim[0][0]) + dim[0][0], y_new * (dim[1][1] - dim[0][1]) + dim[0][1]
 
 
-def setup_rrt_plot(dim, start: Point, goal: Point, obstacles, buffered_obstacles, vehicle_radius, ax: axes.Axes):
+def diff_dynamics(v, theta, w, L):
+    d_x = v * math.cos(theta)
+    d_y = v * math.sin(theta)
+    d_theta = (v / L) * math.tan(w)
+    d_theta = w
+
+    return d_x, d_y, d_theta
+
+
+def setup_rrt_plot(dim, start: Point, goal: Polygon, obstacles: List[Polygon], buffered_obstacles: List[Polygon], vehicle_radius, ax: axes.Axes):
 
     ax.set_xlim(dim[0][0], dim[1][0])
     ax.set_ylim(dim[0][1], dim[1][1])
     ax.set_aspect('equal')
 
     start_circle = plt.Circle(start.tuple(), vehicle_radius,
-                             facecolor='none', edgecolor='r', zorder=15)
+                              facecolor='none', edgecolor='r', zorder=15)
     ax.add_patch(start_circle)
     ax.plot(start.x, start.y, "ro", zorder=15)
-    ax.plot(goal.x, goal.y, "go", zorder=15)
+    ax.plot(*goal.exterior.xy, "r", zorder=15)
 
     for i in range(len(obstacles)):
         if type(obstacles[i]) != LinearRing:
@@ -62,4 +73,3 @@ def setup_rrt_plot(dim, start: Point, goal: Point, obstacles, buffered_obstacles
             ax.plot(x, y, "r")
         x, y = buffered_obstacles[i].exterior.xy
         ax.plot(x, y, color="orange")
-        
