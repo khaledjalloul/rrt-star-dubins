@@ -1,10 +1,9 @@
 
 import math
-import numpy as np
 from typing import List
 from matplotlib import pyplot as plt, axes
-from src.utils import mod_2_pi, deg_2_rad
-from src.classes import *
+from src.utils.functions import mod_2_pi, deg_2_rad
+from src.utils.classes import *
 
 
 def calculate_car_turning_radius(wheel_base: float, max_steering_angle: float):

@@ -2,14 +2,14 @@ from matplotlib import pyplot as plt, axes
 from shapely import Polygon, LinearRing, Point as ShapelyPoint
 import numpy as np
 import math
-from src.utils import setup_rrt_plot, euc_distance, mod_pi, diff_dynamics
-from src.classes import Point
-from src.pid import PIDController
+from utils.functions import setup_rrt_plot, euc_distance, mod_pi, diff_dynamics
+from utils.classes import Point
+from utils.pid import PIDController
 from src.rrt.rrt_star_dubins import RRT
 
 def follow_path():
     start = Point(0, 9, 1)
-    goal = ShapelyPoint(4.5, -2).buffer(0.5)
+    goal = ShapelyPoint(-2.4, -7.5).buffer(0.5)
 
     NUM_SAMPLES = 200
     DIM = ((-11, -11), (11, 11))
@@ -64,6 +64,11 @@ def follow_path():
 
     nearest_idx = 0
 
+    setup_rrt_plot(DIM, start, goal, obstacles,
+                    buffered_obstacles, VEHICLE_RADIUS, ax)
+    
+    plt.waitforbuttonpress()
+    
     dubins_paths, _ = RRT(
         start,
         goals,
@@ -88,8 +93,11 @@ def follow_path():
         ax.clear()
         setup_rrt_plot(DIM, start, goal, obstacles,
                        buffered_obstacles, VEHICLE_RADIUS, ax)
-        ax.plot([p.x for p in rrt_path], [p.y for p in rrt_path], "y")
+        ax.plot([p.x for p in rrt_path], [p.y for p in rrt_path], "g")
         ax.plot(current_x, current_y, "bo", zorder=100)
+        current_circle = plt.Circle(current.tuple(), VEHICLE_RADIUS,
+                                facecolor='none', edgecolor='b', zorder=15)
+        ax.add_patch(current_circle)
 
         next_point = rrt_path[nearest_idx]
         dist = euc_distance(current, next_point)

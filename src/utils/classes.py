@@ -64,7 +64,7 @@ class Curve:
         self.start_theta = math.atan2(start_theta_vec[1], start_theta_vec[0])
 
     def plot(self, ax: axes.Axes, color="y", zorder=1):
-        from src.utils import rad_2_deg
+        from src.utils.functions import rad_2_deg
 
         rot_angle = 0 if self.curve_type == "left" else - \
             rad_2_deg(self.arc_angle)

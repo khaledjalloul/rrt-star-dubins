@@ -4,8 +4,8 @@ from shapely import Polygon, LinearRing, Point as ShapelyPoint
 import numpy as np
 import math
 from typing import List
-from src.utils import setup_rrt_plot, create_halton_sample
-from src.classes import Point, Path
+from src.utils.functions import setup_rrt_plot, create_halton_sample
+from src.utils.classes import Point, Path
 from src.dubins.dubins_circle_to_point import calculate_dubins_path
 
 
@@ -102,6 +102,7 @@ def RRT(start: Point, goals: List[Point], obstacles: List[Polygon], dim, num_sam
 
             if ax is not None:
                 dubins_path.plot(ax)
+                plt.pause(0.01)
 
         for g in goals:
             point_tuples = np.array([[p.x, p.y] for p in points])
@@ -145,7 +146,7 @@ def RRT(start: Point, goals: List[Point], obstacles: List[Polygon], dim, num_sam
 
 if __name__ == "__main__":
     start = Point(0, 9, 1)
-    goal = ShapelyPoint(4.5, -2).buffer(0.5)
+    goal = ShapelyPoint(-2.4, -7.5).buffer(0.5)
 
     NUM_SAMPLES = 200
     DIM = ((-11, -11), (11, 11))

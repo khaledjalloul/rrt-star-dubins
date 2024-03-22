@@ -1,9 +1,8 @@
 from matplotlib import axes, pyplot as plt
-from shapely import LinearRing
+from shapely import LinearRing, Polygon
 import math
 import numpy as np
-from src.classes import Point
-from shapely import Polygon
+from src.utils.classes import Point
 from typing import List
 
 

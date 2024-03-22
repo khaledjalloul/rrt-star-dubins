@@ -4,8 +4,8 @@ from shapely import LineString, Polygon, LinearRing, Point as ShapelyPoint
 import numpy as np
 import math
 import timeit
-from src.utils import setup_rrt_plot, euc_distance, create_halton_sample
-from src.classes import Point
+from src.utils.functions import setup_rrt_plot, euc_distance, create_halton_sample
+from src.utils.classes import Point
 from typing import List
 
 
